@@ -284,6 +284,9 @@ async function monitorTransactions() {
               const matchingAddress = userAddresses.find(
                 ({ address }) => address.toLowerCase() === to.toLowerCase() || address.toLowerCase() === from.toLowerCase()
               );
+              if (!matchingAddress) {
+                continue;
+              }
               const nickname = matchingAddress ? matchingAddress.nickname : "Inconnu";
               const address = matchingAddress ? matchingAddress.address : "Inconnu";
               const explorerUrl =

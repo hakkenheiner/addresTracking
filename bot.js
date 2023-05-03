@@ -16,7 +16,7 @@ async function main () {
 }
 
 const API_Key = {
-  telegram: process.env.TELEGRAM_API,
+  telegram: process.env.TELEGRAM_API_TOKEN,
   etherscan: process.env.API_ETHERSCAN,
   bscscan: process.env.API_BSCSCAN,
   polygonscan: process.env.API_POLYGONSCAN,

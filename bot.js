@@ -1,10 +1,11 @@
+require('dotenv').config();
 const express = require('express');
 const app = express();
-require('dotenv').config();
 const { Telegraf, Markup } = require('telegraf');
 const axios = require('axios');
 const { connectToDatabase, addWatchedAddress, removeWatchedAddress, loadWatchedAddresses } = require('./database');
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
   console.log(`Serveur fonctionnant sur le port ${PORT}`);
 });
@@ -15,13 +16,13 @@ async function main () {
 }
 
 const API_Key = {
-  telegram: process.env.TELEGRAM_API_TOKEN,
+  telegram: process.env.TELEGRAM_API,
   etherscan: process.env.API_ETHERSCAN,
   bscscan: process.env.API_BSCSCAN,
   polygonscan: process.env.API_POLYGONSCAN,
   avalanchescan: process.env.API_AVALANCHESCAN,
   fantomscan: process.env.API_FANTOMSCAN,
-  hecoinfo: process.env.API_HECOINFO,
+  arbitrum: process.env.API_ARBITRUM,
 }
 
 let watchedAddresses = {};
@@ -40,35 +41,33 @@ async function sleep(milliseconds) {
 }
 
 async function getPrices() {
-    try {
-      const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=ethereum%2Cbinancecoin%2Cmatic-network%2Cavalanche-2%2Cfantom%2Chuobi-token&vs_currencies=usd');
-      const ethPrice = response.data.ethereum?.usd;
-      const bnbPrice = response.data.binancecoin?.usd;
-      const maticPrice = response.data["matic-network"]?.usd;
-      const avaxPrice = response.data["avalanche-2"]?.usd;
-      const ftmPrice = response.data.fantom?.usd;
-      const hecoPrice = response.data["huobi-token"]?.usd;
+  try {
+    const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=ethereum%2Cbinancecoin%2Cmatic-network%2Cavalanche-2%2Cfantom&vs_currencies=usd');
+    const ethPrice = response.data.ethereum?.usd;
+    const bnbPrice = response.data.binancecoin?.usd;
+    const maticPrice = response.data["matic-network"]?.usd;
+    const avaxPrice = response.data["avalanche-2"]?.usd;
+    const ftmPrice = response.data.fantom?.usd
 
-      return {
-        ethPrice: ethPrice ?? null,
-        bnbPrice: bnbPrice ?? null,
-        maticPrice: maticPrice ?? null,
-        avaxPrice: avaxPrice ?? null,
-        ftmPrice: ftmPrice ?? null,
-        hecoPrice: hecoPrice ?? null,
-      };
-    } catch (error) {
-      console.error('Error fetching prices:', error);
-      return {
-        ethPrice: null,
-        bnbPrice: null,
-        maticPrice: null,
-        avaxPrice: null,
-        ftmPrice: null,
-        hecoPrice: null,
-      };
-    }
+    return {
+      ethPrice: ethPrice ?? null,
+      bnbPrice: bnbPrice ?? null,
+      maticPrice: maticPrice ?? null,
+      avaxPrice: avaxPrice ?? null,
+      ftmPrice: ftmPrice ?? null
+    };
+  } catch (error) {
+    console.error('Error fetching prices:', error);
+    return {
+      ethPrice: null,
+      bnbPrice: null,
+      maticPrice: null,
+      avaxPrice: null,
+      ftmPrice: null,
+    };
+  }
 }
+
 
 async function sendMessageWithRetry(userId, message, options = {}, maxRetries = 3) {
     const requestOptions = {
@@ -109,18 +108,19 @@ async function checkTransactions(addresses) {
         matic: `https://api.polygonscan.com/api?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${API_Key.polygonscan}`,
         avax: `https://api.snowtrace.io/api?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&page=1&offset=10&sort=desc&apikey=${API_Key.avalanchescan}`,
         ftm: `https://api.ftmscan.com/api?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${API_Key.fantomscan}`,
-        heco: `https://api.hecoinfo.com/api?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${API_Key.hecoinfo}`,
+        arb: `https://api.arbiscan.io/api?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${API_Key.arbitrum}
+        `,
 
       }
 
       try {
-        const [responseEth, responseBsc, responseMatic, responseAvax, responseFtm, responseHeco] = await Promise.all([
+        const [responseEth, responseBsc, responseMatic, responseAvax, responseFtm, responseArb] = await Promise.all([
             axios.get(apiUrl.eth),
             axios.get(apiUrl.bsc),
             axios.get(apiUrl.matic),
             axios.get(apiUrl.avax),
             axios.get(apiUrl.ftm),
-            axios.get(apiUrl.heco)
+            axios.get(apiUrl.arb)
         ]);
 
         const transaction = {
@@ -139,12 +139,12 @@ async function checkTransactions(addresses) {
             ftm: Array.isArray(responseFtm.data.result)
             ? responseFtm.data.result.map(tx => ({ ...tx, chain: 'Fantom' }))
             : [],
-            heco: Array.isArray(responseHeco.data.result)
-            ? responseHeco.data.result.map(tx => ({ ...tx, chain: 'Huobi Eco Chain' }))
+            arb: Array.isArray(responseArb.data.result)
+            ? responseArb.data.result.map(tx => ({ ...tx, chain: 'Arbitrum' }))
             : [],
         }
         
-        transactions = transactions.concat(transaction.eth, transaction.bsc, transaction.matic, transaction.avax, transaction.ftm, transaction.heco);
+        transactions = transactions.concat(transaction.eth, transaction.bsc, transaction.matic, transaction.avax, transaction.ftm, transaction.arb);
       } catch (error) {
         console.error('Error fetching transactions:', error);
       }
@@ -267,7 +267,7 @@ bot.hears(/.*/, async (ctx) => {
 async function monitorTransactions() {
     while (true) {
       // Récupérer les prix en dollars de l'ETH et du BNB
-      const { ethPrice, bnbPrice, maticPrice, avaxPrice, ftmPrice, hecoPrice } = await getPrices();
+      const { ethPrice, bnbPrice, maticPrice, avaxPrice, ftmPrice } = await getPrices();
   
       for (const userId in watchedAddresses) {
         const userAddresses = watchedAddresses[userId];
@@ -297,7 +297,7 @@ async function monitorTransactions() {
                         ? `https://snowtrace.io/address/${address}`
                         : chain === "Fantom"
                           ? `https://ftmscan.com/address/${address}`
-                          : `https://www.hecoinfo.com/en-us/address/${address}`
+                          : `https://arbiscan.io/address/${address}`
   
               const txExplorerUrl =
                 chain === "Ethereum"
@@ -310,7 +310,7 @@ async function monitorTransactions() {
                         ? `https://snowtrace.io/tx/${transaction.hash}`
                         : chain === "Fantom"
                         ? `https://ftmscan.com/tx/${transaction.hash}`
-                        : `https://www.hecoinfo.com/en-us/tx/${transaction.hash}`
+                        : `https://arbiscan.io/tx/${transaction.hash}`
   
   
               const valueInWei = BigInt(transaction.value);
@@ -327,8 +327,8 @@ async function monitorTransactions() {
                 valueInDollars = avaxPrice * valueInEther
               } else if (chain === 'Fantom') {
                 valueInDollars = ftmPrice * valueInEther
-              } else if (chain === 'Huobi Eco Chain') {
-                valueInDollars = hecoPrice * valueInEther
+              } else if (chain === 'Arbitrum') {
+                valueInDollars = ethPrice * valueInEther
               } else {
                 valueInDollars = null;
               }

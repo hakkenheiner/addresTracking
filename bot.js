@@ -338,7 +338,7 @@ async function monitorTransactions() {
 
               const formattedValueInDollars = valueInDollars && valueInDollars.toFixed(2) > 0 ? `  Montant : $${valueInDollars.toFixed(2)}` : '';
               
-              const message = `----------------------\n\n<a href="${explorerUrl}">${nickname}</a>\n\n<a href="${txExplorerUrl}">Tx Hash</a>${formattedValueInDollars}\nBlockchain: ${chain}`;
+              const message = `----------------------\n<a href="${explorerUrl}">${nickname}</a>\n\n<a href="${txExplorerUrl}">Tx Hash</a>${formattedValueInDollars}\nBlockchain: ${chain}`;
               await sendMessageWithRetry(userId, message, {
                 parse_mode: "HTML",
               });

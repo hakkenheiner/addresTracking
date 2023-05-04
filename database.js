@@ -9,7 +9,7 @@ let db;
 async function connectToDatabase() {
   try {
     await client.connect();
-    db = client.db('Cluster0');
+    db = client.db('AddressTracking');
     console.log('Connected to MongoDB');
   } catch (error) {
     console.error('Error connecting to MongoDB:', error);

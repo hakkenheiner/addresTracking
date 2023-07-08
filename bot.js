@@ -347,7 +347,7 @@ async function monitorTransactions() {
         }
       }
   
-      await sleep(10000); // Attendre 10 secondes
+      await sleep(60000); // Attendre 10 secondes
     }
 }
 
